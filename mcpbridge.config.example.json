@@ -1,0 +1,40 @@
+{
+  "$schema": "./config-schema.json",
+  "servers": {
+    "supabase": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "YOUR_SUPABASE_ACCESS_TOKEN"],
+      "description": "Supabase database operations - execute SQL, manage tables, migrations, edge functions",
+      "enabled": true
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "description": "Up-to-date library documentation lookup",
+      "enabled": true
+    },
+    "browsermcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@browsermcp/mcp@latest"],
+      "description": "Browser automation - navigate, click, type, screenshot",
+      "enabled": true
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropics/mcp-server-filesystem", "/path/to/allowed/directory"],
+      "description": "Filesystem access (sandboxed to specified directory)",
+      "enabled": false
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropics/mcp-server-github"],
+      "description": "GitHub API access - repos, issues, PRs",
+      "enabled": false
+    }
+  }
+}

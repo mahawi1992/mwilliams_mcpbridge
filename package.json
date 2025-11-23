@@ -1,0 +1,42 @@
+{
+  "name": "mwilliams-mcpbridge",
+  "version": "1.0.0",
+  "description": "MCP Bridge Server - Single tool to call any MCP server. Reduces context tokens by ~95%.",
+  "main": "bridge-server.js",
+  "type": "module",
+  "bin": {
+    "mcpbridge": "./bridge-server.js"
+  },
+  "scripts": {
+    "start": "node bridge-server.js",
+    "test": "node test-client.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "anthropic",
+    "ai",
+    "llm",
+    "bridge",
+    "proxy",
+    "token-optimization"
+  ],
+  "author": "mwilliams",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mwilliams/mwilliams_mcpbridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mwilliams/mwilliams_mcpbridge/issues"
+  },
+  "homepage": "https://github.com/mwilliams/mwilliams_mcpbridge#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
