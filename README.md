@@ -21,7 +21,7 @@ That's 15% of your context window gone before you even start!
 
 ## The Solution
 
-MCP Bridge exposes just **3 meta-tools** that can call any tool from any server:
+MCP Bridge exposes just **3 meta-tools** that can call any tool from **ANY MCP server**:
 
 | Tool | Purpose |
 |------|---------|
@@ -29,7 +29,36 @@ MCP Bridge exposes just **3 meta-tools** that can call any tool from any server:
 | `list_mcp_tools` | List tools from a specific server |
 | `call_mcp_tool` | Call ANY tool from ANY server |
 
-**Result: ~31,000 tokens → ~1,500 tokens (95% reduction)**
+**Result: ~31,000 tokens → ~2,200 tokens (93% reduction)**
+
+### Works With ANY MCP Server
+
+MCP Bridge is a **universal proxy** - it works with any MCP server that uses stdio transport. The examples in this README use Supabase, Context7, and BrowserMCP, but you can configure it to work with:
+
+- **Any official MCP server** (GitHub, Slack, Filesystem, etc.)
+- **Any community MCP server**
+- **Your own custom MCP servers**
+
+Just add them to your config file and the bridge will proxy calls to them. See [Configuration](#configuration) below.
+
+## Proof: Real Context Usage
+
+Here's our actual Claude Code context after implementing MCP Bridge:
+
+![Context Usage Proof](assets/context-proof.png)
+
+```
+MCP Tools: 2.2k tokens (1.1%)
+
+Tool                              Server       Tokens
+mcp__mcp-bridge__list_servers     mcp-bridge   589
+mcp__mcp-bridge__list_mcp_tools   mcp-bridge   641
+mcp__mcp-bridge__call_mcp_tool    mcp-bridge   939
+                                  Total:       2,169
+```
+
+**Before**: 45 tools consuming ~31k tokens (15.9% of context)
+**After**: 3 tools consuming ~2.2k tokens (1.1% of context)
 
 ## Architecture
 
@@ -245,7 +274,7 @@ Add to `~/.claude.json`:
 
 ### Adding Your Own MCP Servers
 
-Create `mcpbridge.config.json` in your project root:
+**There are NO default servers** - you configure which MCP servers you want to use. Create `mcpbridge.config.json` in your project root:
 
 ```json
 {
@@ -270,12 +299,51 @@ Create `mcpbridge.config.json` in your project root:
       "args": ["@browsermcp/mcp@latest"],
       "description": "Browser automation",
       "enabled": true
+    }
+  }
+}
+```
+
+### Example: Other Popular MCP Servers
+
+You can add ANY MCP server. Here are some examples:
+
+```json
+{
+  "servers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "description": "GitHub API - repos, issues, PRs",
+      "enabled": true
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"],
+      "description": "Sandboxed filesystem access",
+      "enabled": true
+    },
+    "slack": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "description": "Slack API integration",
+      "enabled": true
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://..."],
+      "description": "Direct PostgreSQL access",
+      "enabled": true
     },
     "my-custom-server": {
       "type": "stdio",
       "command": "node",
       "args": ["/path/to/my-server.js"],
-      "description": "My custom MCP server",
+      "description": "Your own MCP server",
       "enabled": true
     }
   }
@@ -348,13 +416,21 @@ call_mcp_tool({
 })
 ```
 
-## Default Servers
+## Tested MCP Servers
+
+These are the MCP servers we tested with, but **you can use ANY MCP server**:
 
 | Server | Package | Auth Required | Description |
 |--------|---------|---------------|-------------|
 | `supabase` | `@supabase/mcp-server-supabase` | Yes (access token) | Database, migrations, edge functions |
 | `context7` | `@upstash/context7-mcp` | No | Up-to-date library documentation |
 | `browsermcp` | `@browsermcp/mcp` | No | Browser automation |
+| `github` | `@modelcontextprotocol/server-github` | Yes (token) | GitHub API |
+| `filesystem` | `@modelcontextprotocol/server-filesystem` | No | Sandboxed file access |
+| `slack` | `@modelcontextprotocol/server-slack` | Yes (token) | Slack integration |
+| `postgres` | `@modelcontextprotocol/server-postgres` | Yes (conn string) | Direct PostgreSQL |
+
+Find more MCP servers at [github.com/modelcontextprotocol](https://github.com/modelcontextprotocol) or build your own!
 
 ## Performance
 
