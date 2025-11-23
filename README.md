@@ -66,7 +66,7 @@ MCP Bridge exposes just **3 meta-tools** that can call any tool from any server:
 claude mcp add mcpbridge -s user -- npx -y mwilliams-mcpbridge
 
 # Or with a local clone
-git clone https://github.com/mwilliams/mwilliams_mcpbridge.git
+git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
 cd mwilliams_mcpbridge
 npm install
 claude mcp add mcpbridge -s user -- node /path/to/bridge-server.js
@@ -267,7 +267,7 @@ Make sure your config has `"enabled": true` and the command/args are correct.
 Contributions welcome! Please read our contributing guidelines first.
 
 ```bash
-git clone https://github.com/mwilliams/mwilliams_mcpbridge.git
+git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
 cd mwilliams_mcpbridge
 npm install
 npm test

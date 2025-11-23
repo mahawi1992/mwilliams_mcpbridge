@@ -5,7 +5,7 @@ Thanks for your interest in contributing!
 ## Development Setup
 
 ```bash
-git clone https://github.com/mwilliams/mwilliams_mcpbridge.git
+git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
 cd mwilliams_mcpbridge
 npm install
 ```

@@ -26,12 +26,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mwilliams/mwilliams_mcpbridge.git"
+    "url": "git+https://github.com/mahawi1992/mwilliams_mcpbridge.git"
   },
   "bugs": {
-    "url": "https://github.com/mwilliams/mwilliams_mcpbridge/issues"
+    "url": "https://github.com/mahawi1992/mwilliams_mcpbridge/issues"
   },
-  "homepage": "https://github.com/mwilliams/mwilliams_mcpbridge#readme",
+  "homepage": "https://github.com/mahawi1992/mwilliams_mcpbridge#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.23.0"
