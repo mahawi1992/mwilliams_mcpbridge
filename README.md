@@ -60,6 +60,68 @@ mcp__mcp-bridge__call_mcp_tool    mcp-bridge   939
 **Before**: 45 tools consuming ~31k tokens (15.9% of context)
 **After**: 3 tools consuming ~2.2k tokens (1.1% of context)
 
+## AI Prompt: How to Use MCP Bridge
+
+Add this to your system prompt or CLAUDE.md to help AI assistants use MCP Bridge correctly:
+
+```markdown
+## MCP Bridge Usage
+
+You have access to MCP Bridge, which provides 3 meta-tools to call ANY MCP server:
+
+### Available Tools
+- `list_servers` - List all configured MCP backends
+- `list_mcp_tools` - List tools from a specific server
+- `call_mcp_tool` - Call any tool from any server
+
+### Usage Pattern (IMPORTANT - Follow This Order)
+
+1. **First, discover available servers:**
+   ```javascript
+   list_servers()
+   ```
+
+2. **Then, list tools from the server you need:**
+   ```javascript
+   list_mcp_tools({ server: "server_name" })
+   ```
+
+3. **Finally, call the specific tool:**
+   ```javascript
+   call_mcp_tool({
+     server: "server_name",
+     tool: "tool_name",
+     arguments: { /* tool-specific args */ }
+   })
+   ```
+
+### Example Workflow
+
+User: "Query my Supabase database for all users"
+
+Step 1: Check available servers
+→ list_servers() → Shows "supabase" is available
+
+Step 2: Find the right tool
+→ list_mcp_tools({ server: "supabase" }) → Shows "execute_sql" tool
+
+Step 3: Call the tool
+→ call_mcp_tool({
+    server: "supabase",
+    tool: "execute_sql",
+    arguments: {
+      project_id: "user-project-id",
+      query: "SELECT * FROM users"
+    }
+  })
+
+### Key Rules
+- Always use list_mcp_tools BEFORE calling an unfamiliar tool
+- Tool names must match EXACTLY (case-sensitive)
+- Arguments vary by tool - check list_mcp_tools output for schema
+- If a tool fails, use list_mcp_tools to verify correct name and args
+```
+
 ## Architecture
 
 ```
