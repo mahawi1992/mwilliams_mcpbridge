@@ -40,60 +40,76 @@ npm install
 # Copy example config
 cp mcpbridge.config.example.json mcpbridge.config.json
 
-# Edit config with your servers
+# Edit config with your MCP servers
 nano mcpbridge.config.json
 ```
 
 ## Setup
 
-### Claude Desktop
-
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
-
-```json
-{
-  "mcpServers": {
-    "mcp-bridge": {
-      "command": "node",
-      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
-      "cwd": "/path/to/mwilliams_mcpbridge"
-    }
-  }
-}
-```
-
 ### Claude Code (CLI)
 
-Add to your project's `.mcp.json` or global `~/.claude/mcp.json`:
+**Option 1: CLI Command (Recommended)**
+```bash
+claude mcp add mcp-bridge -- node /path/to/mwilliams_mcpbridge/bridge-server.js
+```
+
+**Option 2: Global Config (`~/.claude.json`)**
+```json
+{
+  "mcpServers": {
+    "mcp-bridge": {
+      "command": "node",
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"]
+    }
+  }
+}
+```
+
+**Option 3: Project Config (`.mcp.json` in project root)**
+```json
+{
+  "mcpServers": {
+    "mcp-bridge": {
+      "command": "node",
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"]
+    }
+  }
+}
+```
+
+After setup, verify with:
+```bash
+claude mcp list
+```
+
+### Claude Desktop
+
+Add to config file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
     "mcp-bridge": {
       "command": "node",
-      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
-      "cwd": "/path/to/mwilliams_mcpbridge"
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"]
     }
   }
 }
 ```
 
-Or add via CLI:
-```bash
-claude mcp add mcp-bridge node /path/to/mwilliams_mcpbridge/bridge-server.js
-```
+Restart Claude Desktop after changes.
 
-### Cursor / VS Code
+### Cursor / Other MCP Clients
 
-Add to your MCP settings:
-
+Most MCP clients use similar JSON configuration:
 ```json
 {
-  "mcp.servers": {
+  "mcpServers": {
     "mcp-bridge": {
       "command": "node",
-      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
-      "cwd": "/path/to/mwilliams_mcpbridge"
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"]
     }
   }
 }
@@ -225,6 +241,22 @@ Compacted results include:
     └──────────┘    └──────────┘    └──────────┘
 ```
 
+## Troubleshooting
+
+**Server not showing up?**
+- Restart Claude Desktop/Code after config changes
+- Check paths are absolute, not relative
+- Verify with `claude mcp list` (Claude Code)
+
+**Connection errors?**
+- Run `node /path/to/bridge-server.js` manually to check for errors
+- Ensure `npm install` completed successfully
+- Check `mcpbridge.config.json` exists and is valid JSON
+
+**Tools not loading?**
+- Use `check_server_health()` to diagnose
+- Verify underlying MCP servers are configured correctly
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -232,10 +264,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 MIT License - see [LICENSE](LICENSE) file
-
-## Credits
-
-- [Anthropic MCP SDK](https://github.com/anthropics/mcp)
 
 ---
 
