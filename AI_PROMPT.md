@@ -1,4 +1,4 @@
-# MCP Bridge - AI System Prompt
+# MCP Bridge v2.1 - AI System Prompt
 
 Copy this into your CLAUDE.md or system prompt to help AI assistants use MCP Bridge effectively.
 
@@ -6,50 +6,88 @@ Copy this into your CLAUDE.md or system prompt to help AI assistants use MCP Bri
 
 ## MCP Bridge Usage
 
-You have access to MCP Bridge, a universal proxy that provides 3 meta-tools to call ANY configured MCP server. This dramatically reduces context usage while maintaining full MCP functionality.
+You have access to MCP Bridge, a universal proxy that provides **8 meta-tools** to call ANY configured MCP server. This reduces context usage by **99%** through lazy schema loading and result compaction.
 
 ### Available Tools
 
 | Tool | Purpose |
 |------|---------|
 | `list_servers` | Discover all configured MCP backends |
-| `list_mcp_tools` | List available tools from a specific server |
-| `call_mcp_tool` | Execute any tool from any server |
+| `list_mcp_tools` | List tool NAMES from a server (lightweight) |
+| `get_tool_schema` | Get full schema for a SPECIFIC tool (lazy loading) |
+| `call_mcp_tool` | Execute any tool with auto-compaction |
+| `get_result` | Retrieve full data from compacted results |
+| `list_results` | Show all stored compacted results |
+| `check_server_health` | Monitor server connectivity |
+| `get_bridge_stats` | View cache, memory, and uptime stats |
 
-### Usage Pattern (IMPORTANT - Always Follow This Order)
+---
 
-**Step 1: Discover available servers**
+## Usage Patterns
+
+### Pattern 1: Minimal Context (Recommended)
+
+**Step 1: List tool names only (saves 90% context)**
 ```javascript
-list_servers()
-// Returns: { servers: [{ name: "supabase", description: "..." }, ...] }
+list_mcp_tools({ server: "supabase" })
+// Returns: { tools: ["execute_sql", "list_tables", ...], tool_count: 29 }
+// Only ~400 bytes instead of ~8KB!
 ```
 
-**Step 2: List tools from the server you need**
+**Step 2: Get schema for ONLY the tool you need**
 ```javascript
-list_mcp_tools({ server: "server_name" })
-// Returns: { tools: [{ name: "tool_name", description: "..." }, ...] }
+get_tool_schema({ server: "supabase", tool: "execute_sql" })
+// Returns: { tool: "execute_sql", inputSchema: { ... } }
 ```
 
-**Step 3: Call the specific tool**
+**Step 3: Call the tool**
 ```javascript
 call_mcp_tool({
-  server: "server_name",
-  tool: "tool_name",
-  arguments: { /* tool-specific arguments */ }
+  server: "supabase",
+  tool: "execute_sql",
+  arguments: { project_id: "xxx", query: "SELECT * FROM users" }
 })
 ```
 
-### Example Workflows
+### Pattern 2: Handling Large Results
 
-#### Database Query (Supabase)
+When results exceed 2KB, they're automatically compacted:
+
+```javascript
+// Call returns a preview + reference
+call_mcp_tool({ server: "supabase", tool: "execute_sql", arguments: {...} })
+// Returns: {
+//   compacted: true,
+//   result_id: "supabase_execute_sql_abc123",
+//   summary: { type: "object", row_count: 500, size: "48.2KB" },
+//   preview: { rows: [...first 5 items...] }
+// }
+
+// If you need full data:
+get_result({ result_id: "supabase_execute_sql_abc123" })
+// Returns: All 500 rows
+```
+
+### Pattern 3: Verbose Tool Listing (When Needed)
+
+```javascript
+list_mcp_tools({ server: "supabase", verbose: true })
+// Returns: { tools: [{ name: "execute_sql", description: "..." }, ...] }
+```
+
+---
+
+## Example Workflows
+
+### Database Query (Supabase)
 ```javascript
 // User: "Get all users from my database"
 
-// 1. Verify supabase is available
-list_servers()
-
-// 2. Find the SQL tool
+// 1. Check what tools are available
 list_mcp_tools({ server: "supabase" })
+
+// 2. Get schema for execute_sql
+get_tool_schema({ server: "supabase", tool: "execute_sql" })
 
 // 3. Execute query
 call_mcp_tool({
@@ -62,18 +100,11 @@ call_mcp_tool({
 })
 ```
 
-#### Documentation Lookup (Context7)
+### Documentation Lookup (Context7)
 ```javascript
 // User: "How do I use React hooks?"
 
-// 1. Find the library ID
-call_mcp_tool({
-  server: "context7",
-  tool: "resolve-library-id",
-  arguments: { libraryName: "react" }
-})
-
-// 2. Get documentation
+// 1. Get docs
 call_mcp_tool({
   server: "context7",
   tool: "get-library-docs",
@@ -84,36 +115,41 @@ call_mcp_tool({
 })
 ```
 
-#### Browser Automation (BrowserMCP)
+### Health Check
 ```javascript
-// User: "Take a screenshot of example.com"
+// Check all servers
+check_server_health()
+// Returns: { summary: { healthy: 11, unhealthy: 1 }, servers: [...] }
 
-// 1. Navigate to page
-call_mcp_tool({
-  server: "browsermcp",
-  tool: "browser_navigate",
-  arguments: { url: "https://example.com" }
-})
-
-// 2. Take screenshot
-call_mcp_tool({
-  server: "browsermcp",
-  tool: "browser_screenshot",
-  arguments: {}
-})
+// Check specific server
+check_server_health({ server: "supabase" })
 ```
 
-### Key Rules
+### View Bridge Statistics
+```javascript
+get_bridge_stats()
+// Returns: {
+//   version: "2.1.0",
+//   servers: { configured: 12, connected: 5 },
+//   caches: { tools_cached: 3, results_stored: 2 },
+//   memory: { heap_used_mb: 12.5 }
+// }
+```
 
-1. **Always discover before calling** - Use `list_mcp_tools` before calling an unfamiliar tool
-2. **Exact names required** - Tool names are case-sensitive and must match exactly
-3. **Check arguments** - Each tool has different required arguments; check the tool listing
-4. **Handle errors gracefully** - If a tool fails, verify the name and arguments with `list_mcp_tools`
-5. **Server must be configured** - Only servers in the config file are available
+---
 
-### Error Handling
+## Key Rules
 
-If you get an error:
+1. **Use lazy loading** - Call `list_mcp_tools` for names, then `get_tool_schema` for specific tool
+2. **Don't load all schemas** - Only fetch what you need to save context
+3. **Handle compacted results** - Use `get_result(id)` when you need full data
+4. **Check health first** - Use `check_server_health` if a server seems unresponsive
+5. **Results expire** - Compacted results last 10 minutes, then auto-delete
+
+---
+
+## Error Handling
+
 ```javascript
 // Error: "Unknown server: xyz"
 // → Use list_servers() to see available servers
@@ -121,19 +157,23 @@ If you get an error:
 // Error: "Tool not found: abc"
 // → Use list_mcp_tools({ server: "xyz" }) to see available tools
 
-// Error: "Invalid arguments"
-// → Check the tool's schema in list_mcp_tools output
+// Error: "Result not found"
+// → Result expired (10 min TTL). Re-run the original call.
+
+// Error: "Connection timeout"
+// → Server may be starting up. Use check_server_health() then retry.
 ```
 
-### Common Servers Reference
+---
 
-| Server | Common Tools | Use Case |
-|--------|-------------|----------|
-| `supabase` | `execute_sql`, `list_tables`, `apply_migration` | Database operations |
-| `context7` | `resolve-library-id`, `get-library-docs` | Documentation lookup |
-| `browsermcp` | `browser_navigate`, `browser_click`, `browser_snapshot` | Browser automation |
-| `github` | `create_issue`, `list_repos`, `create_pr` | GitHub operations |
-| `filesystem` | `read_file`, `write_file`, `list_directory` | File system access |
+## Context Savings
+
+| Action | Without Bridge | With Bridge v2.1 | Savings |
+|--------|----------------|------------------|---------|
+| List 29 tools | ~8,000 bytes | ~400 bytes | **95%** |
+| Get 1 schema | (included) | ~300 bytes | N/A |
+| Use 1 tool | ~8,000 bytes | ~700 bytes | **91%** |
+| 12 servers | ~120KB | ~2KB | **98%** |
 
 ---
 
@@ -141,21 +181,26 @@ If you get an error:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    MCP BRIDGE CHEAT SHEET                   │
+│                MCP BRIDGE v2.1 CHEAT SHEET                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. LIST SERVERS                                            │
-│     list_servers()                                          │
+│  DISCOVER                                                   │
+│    list_servers()                                           │
+│    list_mcp_tools({ server: "name" })                       │
+│    get_tool_schema({ server: "name", tool: "tool" })        │
 │                                                             │
-│  2. LIST TOOLS                                              │
-│     list_mcp_tools({ server: "name" })                      │
+│  EXECUTE                                                    │
+│    call_mcp_tool({ server, tool, arguments })               │
 │                                                             │
-│  3. CALL TOOL                                               │
-│     call_mcp_tool({                                         │
-│       server: "name",                                       │
-│       tool: "tool_name",                                    │
-│       arguments: { ... }                                    │
-│     })                                                      │
+│  RESULTS                                                    │
+│    get_result({ result_id: "xxx" })                         │
+│    list_results()                                           │
+│                                                             │
+│  MONITOR                                                    │
+│    check_server_health()                                    │
+│    get_bridge_stats()                                       │
+│                                                             │
+│  FLOW: list_mcp_tools → get_tool_schema → call_mcp_tool    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
