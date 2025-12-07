@@ -4,8 +4,6 @@
 
 MCP Bridge consolidates multiple MCP servers behind a single, intelligent interface. Instead of loading 271+ tool schemas into your AI's context window, you get 8 meta-tools with lazy schema loading.
 
-Inspired by [Manus's context engineering approach](https://rlancemartin.github.io/2025/10/15/manus/) and Anthropic's [effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
-
 ## The Problem
 
 Without MCP Bridge:
@@ -46,13 +44,52 @@ cp mcpbridge.config.example.json mcpbridge.config.json
 nano mcpbridge.config.json
 ```
 
-## Claude Desktop Setup
+## Setup
 
-Add to your `~/Library/Application Support/Claude/claude_desktop_config.json`:
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
 
 ```json
 {
   "mcpServers": {
+    "mcp-bridge": {
+      "command": "node",
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
+      "cwd": "/path/to/mwilliams_mcpbridge"
+    }
+  }
+}
+```
+
+### Claude Code (CLI)
+
+Add to your project's `.mcp.json` or global `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "mcp-bridge": {
+      "command": "node",
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
+      "cwd": "/path/to/mwilliams_mcpbridge"
+    }
+  }
+}
+```
+
+Or add via CLI:
+```bash
+claude mcp add mcp-bridge node /path/to/mwilliams_mcpbridge/bridge-server.js
+```
+
+### Cursor / VS Code
+
+Add to your MCP settings:
+
+```json
+{
+  "mcp.servers": {
     "mcp-bridge": {
       "command": "node",
       "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
@@ -144,7 +181,7 @@ Create `mcpbridge.config.json`:
 | `enabled` | boolean | Enable/disable server |
 | `env` | object | Environment variables |
 
-## Context Savings Example
+## Context Savings
 
 | Scenario | Without Bridge | With Bridge | Savings |
 |----------|----------------|-------------|---------|
@@ -190,11 +227,7 @@ Compacted results include:
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
@@ -203,8 +236,6 @@ MIT License - see [LICENSE](LICENSE) file
 ## Credits
 
 - [Anthropic MCP SDK](https://github.com/anthropics/mcp)
-- [Manus Context Engineering](https://rlancemartin.github.io/2025/10/15/manus/)
-- [Anthropic's Context Engineering Guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
 ---
 
