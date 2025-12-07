@@ -8,58 +8,84 @@ Thanks for your interest in contributing!
 git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
 cd mwilliams_mcpbridge
 npm install
+cp mcpbridge.config.example.json mcpbridge.config.json
 ```
 
-## Running Locally
+## Architecture (v2.1)
 
-```bash
-# Start the bridge server
-node bridge-server.js
+Single file (`bridge-server.js`) with:
 
-# In another terminal, run tests
-node test-client.js
-```
+- **CONFIG** - Retry, cache, compaction settings
+- **Result Store** - In-memory compacted results (10 min TTL)
+- **Tool Cache** - Schema cache (5 min TTL)
+- **Connection Pool** - Lazy connections with retry
+- **8 Meta-Tools** - list_servers, list_mcp_tools, get_tool_schema, call_mcp_tool, get_result, list_results, check_server_health, get_bridge_stats
 
-## Adding a New Default Server
+## Key Concepts
 
-1. Edit `bridge-server.js` and add to the default `SERVERS` object:
+### Lazy Schema Loading
+- `list_mcp_tools` returns tool NAMES only (95% context savings)
+- `get_tool_schema` fetches ONE tool schema on-demand
 
-```javascript
-'my-server': {
-  type: 'stdio',
-  command: 'npx',
-  args: ['-y', '@org/my-mcp-server@latest'],
-  description: 'What this server does',
-  enabled: true
+### Result Compaction
+- Results >2KB or >20 items auto-compact
+- Returns preview + result_id
+- Full data via `get_result(id)`
+
+### Retry Logic
+- Exponential backoff: 1s, 2s, 4s
+- Jitter prevents thundering herd
+- Auto-reconnect on failures
+
+## Adding a Meta-Tool
+
+1. Add definition to `TOOLS` array
+2. Add handler in `CallToolRequestSchema` section
+3. Update README.md and AI_PROMPT.md
+
+## Adding Server Examples
+
+Add to `mcpbridge.config.example.json`:
+```json
+"my-server": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "@org/mcp-server"],
+  "description": "Description here",
+  "enabled": false,
+  "env": { "API_KEY": "YOUR_API_KEY" }
 }
 ```
 
-2. Update the README with the new server
-3. Add an example to `mcpbridge.config.example.json`
-4. Test with `node test-client.js list-tools my-server`
+Never commit real credentials!
 
 ## Pull Request Guidelines
 
-1. Fork the repo and create a branch from `main`
-2. Test your changes with `node test-client.js`
-3. Update documentation if needed
-4. Submit a PR with a clear description
+1. Fork and branch from `main`
+2. Validate: `node --check bridge-server.js`
+3. Test with real MCP servers if possible
+4. Update docs for user-facing changes
+5. Submit PR with clear description
 
 ## Code Style
 
-- Use ES modules (`import`/`export`)
-- Use async/await for async operations
-- Add JSDoc comments for public functions
-- Keep error messages helpful
+- Single file architecture
+- ES modules (import/export)
+- Async/await
+- Log to stderr: `console.error('[mcpbridge] ...')`
+- Helpful error messages with hints
 
 ## Reporting Issues
 
-When reporting issues, please include:
-- Node.js version (`node --version`)
-- Operating system
-- Steps to reproduce
-- Error messages (full stack trace if available)
+Include: Node.js version, OS, bridge version, steps to reproduce, full error.
+
+## Ideas for Future
+
+- File-based result storage
+- WebSocket transport
+- Config hot-reload
+- Per-server settings
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree to the MIT License.
