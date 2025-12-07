@@ -1,586 +1,213 @@
-# MCP Bridge
+# MCP Bridge - Context Engineering for AI Agents
 
-**Single Tool to Rule Them All** - An MCP server that proxies calls to any other MCP server, reducing context token usage by ~95%.
+**Reduce your MCP context usage by 99%** 🚀
 
-[![npm version](https://img.shields.io/npm/v/mwilliams-mcpbridge.svg)](https://www.npmjs.com/package/mwilliams-mcpbridge)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+MCP Bridge consolidates multiple MCP servers behind a single, intelligent interface. Instead of loading 271+ tool schemas into your AI's context window, you get 8 meta-tools with lazy schema loading.
+
+Inspired by [Manus's context engineering approach](https://rlancemartin.github.io/2025/10/15/manus/) and Anthropic's [effective context engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
 
 ## The Problem
 
-When using Claude with multiple MCP servers, each server's tools consume context tokens:
+Without MCP Bridge:
+- 12 MCP servers × ~20 tools each = 240+ tool schemas in context
+- Each schema ~500 bytes = **~120KB of context wasted**
+- LLM performance degrades as context fills
 
-| MCP Server | Tools | Tokens |
-|------------|-------|--------|
-| Supabase | 29 | ~18,000 |
-| Browser MCP | 12 | ~7,000 |
-| Context7 | 2 | ~1,700 |
-| CopilotKit | 2 | ~1,600 |
-| **Total** | **45** | **~31,000** |
+With MCP Bridge:
+- 8 meta-tools = ~2KB base context
+- Lazy schema loading = fetch only what you need
+- Result compaction = large results stored externally
 
-That's 15% of your context window gone before you even start!
+**Result: 99%+ context reduction**
 
-## The Solution
+## Features
 
-MCP Bridge exposes just **3 meta-tools** that can call any tool from **ANY MCP server**:
+- **🗜️ Result Compaction** - Large results (>2KB) automatically stored, returns preview + reference
+- **📦 Lazy Schema Loading** - Only fetch schemas for tools you're about to use
+- **🔄 Retry Logic** - Exponential backoff with jitter for reliability
+- **💾 Tool Caching** - 5-minute TTL for tool schemas
+- **🏥 Health Checks** - Monitor all server connectivity
+- **📊 Bridge Stats** - Memory usage, cache stats, uptime
 
-| Tool | Purpose |
-|------|---------|
-| `list_servers` | Discover available MCP backends |
-| `list_mcp_tools` | List tools from a specific server |
-| `call_mcp_tool` | Call ANY tool from ANY server |
-
-**Result: ~31,000 tokens → ~2,200 tokens (93% reduction)**
-
-### Works With ANY MCP Server
-
-MCP Bridge is a **universal proxy** - it works with any MCP server that uses stdio transport. The examples in this README use Supabase, Context7, and BrowserMCP, but you can configure it to work with:
-
-- **Any official MCP server** (GitHub, Slack, Filesystem, etc.)
-- **Any community MCP server**
-- **Your own custom MCP servers**
-
-Just add them to your config file and the bridge will proxy calls to them. See [Configuration](#configuration) below.
-
-## Proof: Real Context Usage
-
-Here's our actual Claude Code context after implementing MCP Bridge:
-
-![Context Usage Proof](assets/context-proof.png)
-
-```
-MCP Tools: 2.2k tokens (1.1%)
-
-Tool                              Server       Tokens
-mcp__mcp-bridge__list_servers     mcp-bridge   589
-mcp__mcp-bridge__list_mcp_tools   mcp-bridge   641
-mcp__mcp-bridge__call_mcp_tool    mcp-bridge   939
-                                  Total:       2,169
-```
-
-**Before**: 45 tools consuming ~31k tokens (15.9% of context)
-**After**: 3 tools consuming ~2.2k tokens (1.1% of context)
-
-## AI Prompt: How to Use MCP Bridge
-
-Add this to your system prompt or CLAUDE.md to help AI assistants use MCP Bridge correctly:
-
-```markdown
-## MCP Bridge Usage
-
-You have access to MCP Bridge, which provides 3 meta-tools to call ANY MCP server:
-
-### Available Tools
-- `list_servers` - List all configured MCP backends
-- `list_mcp_tools` - List tools from a specific server
-- `call_mcp_tool` - Call any tool from any server
-
-### Usage Pattern (IMPORTANT - Follow This Order)
-
-1. **First, discover available servers:**
-   ```javascript
-   list_servers()
-   ```
-
-2. **Then, list tools from the server you need:**
-   ```javascript
-   list_mcp_tools({ server: "server_name" })
-   ```
-
-3. **Finally, call the specific tool:**
-   ```javascript
-   call_mcp_tool({
-     server: "server_name",
-     tool: "tool_name",
-     arguments: { /* tool-specific args */ }
-   })
-   ```
-
-### Example Workflow
-
-User: "Query my Supabase database for all users"
-
-Step 1: Check available servers
-→ list_servers() → Shows "supabase" is available
-
-Step 2: Find the right tool
-→ list_mcp_tools({ server: "supabase" }) → Shows "execute_sql" tool
-
-Step 3: Call the tool
-→ call_mcp_tool({
-    server: "supabase",
-    tool: "execute_sql",
-    arguments: {
-      project_id: "user-project-id",
-      query: "SELECT * FROM users"
-    }
-  })
-
-### Key Rules
-- Always use list_mcp_tools BEFORE calling an unfamiliar tool
-- Tool names must match EXACTLY (case-sensitive)
-- Arguments vary by tool - check list_mcp_tools output for schema
-- If a tool fails, use list_mcp_tools to verify correct name and args
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Claude / LLM                          │
-│                                                             │
-│  Before: 45 tools loaded          After: 3 tools loaded    │
-│  ├── supabase (29 tools)          ├── list_servers         │
-│  ├── browsermcp (12 tools)   →    ├── list_mcp_tools       │
-│  ├── context7 (2 tools)           └── call_mcp_tool        │
-│  └── copilotkit (2 tools)                                  │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      MCP Bridge                             │
-│                                                             │
-│   call_mcp_tool("supabase", "execute_sql", {...})          │
-│                              │                              │
-│                              ▼                              │
-│   ┌─────────┐  ┌──────────┐  ┌───────────┐                 │
-│   │Supabase │  │ Context7 │  │ BrowserMCP│  ... more       │
-│   └─────────┘  └──────────┘  └───────────┘                 │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## Quick Start (Step-by-Step Guide)
-
-This is the exact workflow we used to build and validate the bridge. **Important: Always verify each MCP server works before adding it to the bridge.**
-
-### Step 1: Install and Test Individual MCP Servers First
-
-Before using the bridge, make sure each MCP server works on its own:
+## Installation
 
 ```bash
-# Add Supabase MCP (requires access token)
-claude mcp add supabase -s user -- npx -y @supabase/mcp-server-supabase@latest --access-token YOUR_TOKEN
-
-# Add Context7 MCP (no auth required)
-claude mcp add context7 -s user -- npx -y @upstash/context7-mcp@latest
-
-# Add Browser MCP (no auth required)
-claude mcp add browsermcp -s user -- npx @browsermcp/mcp@latest
-
-# Verify all are connected
-claude mcp list
-```
-
-Expected output:
-```
-supabase: npx -y @supabase/mcp-server-supabase@latest ... - ✓ Connected
-context7: npx -y @upstash/context7-mcp@latest - ✓ Connected
-browsermcp: npx @browsermcp/mcp@latest - ✓ Connected
-```
-
-### Step 2: Test Each Server Works
-
-Start a Claude Code session and test each server:
-
-```javascript
-// Test Supabase
-mcp__supabase__list_projects()
-
-// Test Context7
-mcp__context7__resolve-library-id({ libraryName: "react" })
-
-// Test Browser MCP
-mcp__browsermcp__browser_navigate({ url: "https://example.com" })
-```
-
-**Only proceed to Step 3 if all servers respond correctly!**
-
-### Step 3: Install MCP Bridge
-
-Now add the bridge server:
-
-```bash
-# Option A: Via npx (when published to npm)
-claude mcp add mcp-bridge -s user -- npx -y mwilliams-mcpbridge
-
-# Option B: Via local clone
+# Clone the repository
 git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
 cd mwilliams_mcpbridge
+
+# Install dependencies
 npm install
-claude mcp add mcp-bridge -s user -- node /full/path/to/bridge-server.js
 
-# Verify bridge is connected
-claude mcp list
+# Copy example config
+cp mcpbridge.config.example.json mcpbridge.config.json
+
+# Edit config with your servers
+nano mcpbridge.config.json
 ```
 
-### Step 4: Test the Bridge
+## Claude Desktop Setup
 
-Start a **new** Claude Code session (to load the bridge tools) and test:
-
-```javascript
-// List available servers through the bridge
-list_servers()
-
-// List tools from a server
-list_mcp_tools({ server: "supabase" })
-
-// Call a tool through the bridge
-call_mcp_tool({
-  server: "supabase",
-  tool: "list_projects",
-  arguments: {}
-})
-
-// Test Context7 through bridge
-call_mcp_tool({
-  server: "context7",
-  tool: "resolve-library-id",
-  arguments: { libraryName: "react" }
-})
-
-// Test Browser through bridge
-call_mcp_tool({
-  server: "browsermcp",
-  tool: "browser_navigate",
-  arguments: { url: "https://example.com" }
-})
-```
-
-**Verify all three work through the bridge before proceeding!**
-
-### Step 5: Remove Individual MCP Servers (Get the Token Savings!)
-
-Once the bridge is working, remove the individual servers to get the 95% token savings:
-
-```bash
-# Remove individual servers
-claude mcp remove supabase -s user
-claude mcp remove context7 -s user
-claude mcp remove browsermcp -s user
-
-# Verify only bridge remains
-claude mcp list
-```
-
-Expected output:
-```
-mcp-bridge: node /path/to/bridge-server.js - ✓ Connected
-```
-
-### Step 6: Enjoy 95% Token Savings!
-
-Now all MCP calls go through the bridge:
-
-```javascript
-// Before: 45 tools taking ~31k tokens
-// After: 3 tools taking ~1.5k tokens
-
-// All your MCP calls now use this pattern:
-call_mcp_tool({
-  server: "supabase",
-  tool: "execute_sql",
-  arguments: {
-    project_id: "your-project-id",
-    query: "SELECT * FROM users LIMIT 10"
-  }
-})
-```
-
-## Our Journey: How We Built This
-
-We ran into the MCP token problem ourselves. Here's what happened:
-
-1. **Discovered the problem**: Running `/context` in Claude Code showed MCP tools consuming 31.7k tokens (15.9% of context)
-
-2. **Found Anthropic's solution**: Their ["Code Execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp) post described reducing 150k tokens to 2k tokens
-
-3. **Built the bridge**: Created an MCP server that acts as a proxy to other MCP servers
-
-4. **Key insight**: You MUST verify each MCP server works individually before adding to the bridge. The bridge just forwards calls - if the underlying server is broken, the bridge can't fix it.
-
-5. **The result**: 45 tools → 3 tools, ~31k tokens → ~1.5k tokens
-
-## Installation Options
-
-### Option A: Clone and Run (Recommended for Testing)
-
-```bash
-git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
-cd mwilliams_mcpbridge
-npm install
-claude mcp add mcp-bridge -s user -- node $(pwd)/bridge-server.js
-```
-
-### Option B: npx (When Published)
-
-```bash
-claude mcp add mcp-bridge -s user -- npx -y mwilliams-mcpbridge
-```
-
-### Option C: Manual Config
-
-Add to `~/.claude.json`:
+Add to your `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "mcp-bridge": {
-      "type": "stdio",
       "command": "node",
-      "args": ["/path/to/bridge-server.js"]
+      "args": ["/path/to/mwilliams_mcpbridge/bridge-server.js"],
+      "cwd": "/path/to/mwilliams_mcpbridge"
     }
   }
 }
 ```
+
+## Usage
+
+### 1. List Available Servers
+```javascript
+list_servers()
+// → { servers: ["supabase", "clerk", "twilio", ...], count: 12 }
+```
+
+### 2. List Tools (Names Only - Minimal Context)
+```javascript
+list_mcp_tools("supabase")
+// → { tools: ["query", "insert", "update", ...], tool_count: 29 }
+// Only ~400 bytes instead of ~8KB!
+```
+
+### 3. Get Schema for ONE Tool
+```javascript
+get_tool_schema("supabase", "execute_sql")
+// → { tool: "execute_sql", inputSchema: { ... } }
+// Only fetch what you need!
+```
+
+### 4. Call Any Tool
+```javascript
+call_mcp_tool("supabase", "execute_sql", { 
+  project_id: "xxx", 
+  query: "SELECT * FROM users" 
+})
+// Large results automatically compacted
+```
+
+### 5. Retrieve Compacted Results
+```javascript
+get_result("supabase_execute_sql_abc123")
+// → Full result data
+```
+
+## Available Meta-Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_servers` | Discover available MCP backends |
+| `list_mcp_tools` | List tool names (lightweight) |
+| `get_tool_schema` | Get full schema for specific tool |
+| `call_mcp_tool` | Execute any tool with auto-compaction |
+| `get_result` | Retrieve compacted result by ID |
+| `list_results` | Show all stored results |
+| `check_server_health` | Monitor server connectivity |
+| `get_bridge_stats` | Memory, cache, uptime stats |
 
 ## Configuration
 
-### Adding Your Own MCP Servers
-
-**There are NO default servers** - you configure which MCP servers you want to use. Create `mcpbridge.config.json` in your project root:
+Create `mcpbridge.config.json`:
 
 ```json
 {
   "servers": {
-    "supabase": {
+    "my-server": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "YOUR_TOKEN"],
-      "description": "Supabase database operations",
-      "enabled": true
-    },
-    "context7": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"],
-      "description": "Library documentation",
-      "enabled": true
-    },
-    "browsermcp": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["@browsermcp/mcp@latest"],
-      "description": "Browser automation",
-      "enabled": true
+      "args": ["-y", "@some/mcp-server"],
+      "description": "My MCP Server",
+      "enabled": true,
+      "env": {
+        "API_KEY": "your-api-key"
+      }
     }
   }
 }
 ```
 
-### Example: Other Popular MCP Servers
+### Server Options
 
-You can add ANY MCP server. Here are some examples:
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Transport type (only `stdio` supported) |
+| `command` | string | Command to run |
+| `args` | array | Command arguments |
+| `description` | string | Human-readable description |
+| `enabled` | boolean | Enable/disable server |
+| `env` | object | Environment variables |
 
-```json
-{
-  "servers": {
-    "github": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "description": "GitHub API - repos, issues, PRs",
-      "enabled": true
-    },
-    "filesystem": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"],
-      "description": "Sandboxed filesystem access",
-      "enabled": true
-    },
-    "slack": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-slack"],
-      "description": "Slack API integration",
-      "enabled": true
-    },
-    "postgres": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://..."],
-      "description": "Direct PostgreSQL access",
-      "enabled": true
-    },
-    "my-custom-server": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/path/to/my-server.js"],
-      "description": "Your own MCP server",
-      "enabled": true
-    }
-  }
-}
+## Context Savings Example
+
+| Scenario | Without Bridge | With Bridge | Savings |
+|----------|----------------|-------------|---------|
+| List 29 Supabase tools | ~8,000 bytes | ~400 bytes | 95% |
+| Get 1 tool schema | (included above) | ~300 bytes | N/A |
+| **Use 1 tool** | ~8,000 bytes | ~700 bytes | **91%** |
+| 12 servers × 20 tools | ~120,000 bytes | ~2,000 bytes | **98%** |
+
+## Compaction Settings
+
+Results are automatically compacted when:
+- Size > 2KB
+- Array has > 20 items
+
+Compacted results include:
+- Summary (type, size, item count)
+- Preview (first 5 items)
+- Reference ID (fetch full data with `get_result`)
+
+## Architecture
+
 ```
-
-Or set config path via environment variable:
-
-```bash
-MCPBRIDGE_CONFIG=/path/to/config.json claude mcp add mcp-bridge ...
+┌─────────────────────────────────────────────────────────────┐
+│                     Claude / AI Agent                        │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ 8 meta-tools (~2KB context)
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      MCP Bridge v2.1                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ Tool Cache  │  │Result Store │  │ Connection Manager  │  │
+│  │  (5 min)    │  │ (10 min)    │  │   (retry + pool)    │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ On-demand connections
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │ Supabase │    │  Clerk   │    │  Twilio  │  ... 
+    │ 29 tools │    │ 19 tools │    │ 47 tools │
+    └──────────┘    └──────────┘    └──────────┘
 ```
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `MCPBRIDGE_CONFIG` | Path to custom config file |
-| `SUPABASE_ACCESS_TOKEN` | Supabase Management API token (required for Supabase) |
-
-## Usage Examples
-
-### List Servers
-```javascript
-list_servers()
-// Returns available backends
-```
-
-### Discover Tools
-```javascript
-list_mcp_tools({ server: "supabase" })
-// Returns all 29 Supabase tools with descriptions
-```
-
-### Execute SQL
-```javascript
-call_mcp_tool({
-  server: "supabase",
-  tool: "execute_sql",
-  arguments: {
-    project_id: "your-project-id",
-    query: "SELECT COUNT(*) FROM users"
-  }
-})
-```
-
-### Get Library Docs
-```javascript
-call_mcp_tool({
-  server: "context7",
-  tool: "get-library-docs",
-  arguments: {
-    context7CompatibleLibraryID: "/vercel/next.js",
-    topic: "routing"
-  }
-})
-```
-
-### Browser Automation
-```javascript
-call_mcp_tool({
-  server: "browsermcp",
-  tool: "browser_navigate",
-  arguments: { url: "https://example.com" }
-})
-
-call_mcp_tool({
-  server: "browsermcp",
-  tool: "browser_snapshot",
-  arguments: {}
-})
-```
-
-## Tested MCP Servers
-
-These are the MCP servers we tested with, but **you can use ANY MCP server**:
-
-| Server | Package | Auth Required | Description |
-|--------|---------|---------------|-------------|
-| `supabase` | `@supabase/mcp-server-supabase` | Yes (access token) | Database, migrations, edge functions |
-| `context7` | `@upstash/context7-mcp` | No | Up-to-date library documentation |
-| `browsermcp` | `@browsermcp/mcp` | No | Browser automation |
-| `github` | `@modelcontextprotocol/server-github` | Yes (token) | GitHub API |
-| `filesystem` | `@modelcontextprotocol/server-filesystem` | No | Sandboxed file access |
-| `slack` | `@modelcontextprotocol/server-slack` | Yes (token) | Slack integration |
-| `postgres` | `@modelcontextprotocol/server-postgres` | Yes (conn string) | Direct PostgreSQL |
-
-Find more MCP servers at [github.com/modelcontextprotocol](https://github.com/modelcontextprotocol) or build your own!
-
-## Performance
-
-| Metric | Native MCP | MCP Bridge |
-|--------|------------|------------|
-| Tools in context | 45 | 3 |
-| Context tokens | ~31,000 | ~1,500 |
-| Latency | Direct | +1 hop (~10-50ms) |
-| Token savings | - | **~95%** |
-
-## Troubleshooting
-
-### "Unknown server" error
-
-The server isn't configured or enabled:
-```javascript
-// Check available servers
-list_servers()
-```
-
-### Server won't connect
-
-Test the underlying MCP server directly:
-```bash
-# Test Supabase
-npx -y @supabase/mcp-server-supabase@latest --help
-
-# Test Context7
-npx -y @upstash/context7-mcp@latest --help
-```
-
-### Tool not found
-
-List tools first to get exact names:
-```javascript
-list_mcp_tools({ server: "supabase" })
-// Use exact tool name from the response
-```
-
-### Bridge not loading
-
-1. Restart Claude Code after adding the bridge
-2. Check `claude mcp list` shows bridge as connected
-3. Verify the bridge-server.js path is correct
-
-## How It Works Internally
-
-1. **MCP Bridge** starts as a standard MCP server using stdio transport
-2. When Claude calls `call_mcp_tool(server, tool, args)`:
-   - Bridge checks if it has a cached connection to `server`
-   - If not, spawns the server process and connects via MCP SDK
-   - Forwards the tool call with arguments
-   - Returns the result to Claude
-3. Connections are cached for subsequent calls
-4. Claude only sees 3 tools instead of 45+
-
-## Comparison with Anthropic's Approach
-
-This implements the pattern from [Anthropic's "Code Execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp):
-
-> "By exposing tools as files and letting the agent discover them on-demand, we reduced context from 150k tokens to 2k tokens."
-
-MCP Bridge achieves similar savings while staying within the MCP ecosystem - no need to change how you call tools, just route them through the bridge.
 
 ## Contributing
 
-```bash
-git clone https://github.com/mahawi1992/mwilliams_mcpbridge.git
-cd mwilliams_mcpbridge
-npm install
-npm test
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT - see [LICENSE](LICENSE)
+MIT License - see [LICENSE](LICENSE) file
 
 ## Credits
 
-- Inspired by [Anthropic's Code Execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)
-- Built with [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+- [Anthropic MCP SDK](https://github.com/anthropics/mcp)
+- [Manus Context Engineering](https://rlancemartin.github.io/2025/10/15/manus/)
+- [Anthropic's Context Engineering Guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
 
-## Related
+---
 
-- [MCP Specification](https://spec.modelcontextprotocol.io/)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-- [Supabase MCP Server](https://github.com/supabase/mcp-server-supabase)
-- [Context7 MCP](https://github.com/upstash/context7-mcp)
-- [Browser MCP](https://github.com/anthropics/anthropic-tools)
+**Built by [@mahawi1992](https://github.com/mahawi1992)** 
+
+*Reduce context, increase capability.* 🚀

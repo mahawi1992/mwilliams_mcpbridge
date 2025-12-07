@@ -1,13 +1,6 @@
 {
   "$schema": "./config-schema.json",
   "servers": {
-    "supabase": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "YOUR_SUPABASE_ACCESS_TOKEN"],
-      "description": "Supabase database operations - execute SQL, manage tables, migrations, edge functions",
-      "enabled": true
-    },
     "context7": {
       "type": "stdio",
       "command": "npx",
@@ -15,25 +8,42 @@
       "description": "Up-to-date library documentation lookup",
       "enabled": true
     },
-    "browsermcp": {
+    "desktop-commander": {
       "type": "stdio",
       "command": "npx",
-      "args": ["@browsermcp/mcp@latest"],
-      "description": "Browser automation - navigate, click, type, screenshot",
+      "args": ["-y", "@wonderwhy-er/desktop-commander@latest"],
+      "description": "Desktop file and process operations",
       "enabled": true
     },
-    "filesystem": {
+    "supabase": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropics/mcp-server-filesystem", "/path/to/allowed/directory"],
-      "description": "Filesystem access (sandboxed to specified directory)",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "YOUR_SUPABASE_ACCESS_TOKEN"],
+      "description": "Supabase database operations",
+      "enabled": false,
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "YOUR_SUPABASE_ACCESS_TOKEN"
+      }
+    },
+    "clerk": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@clerk/agent-toolkit", "-p=local-mcp", "--tools=*", "--secret-key=YOUR_CLERK_SECRET_KEY"],
+      "description": "Clerk Agent Toolkit - user management, organizations, invitations",
       "enabled": false
     },
-    "github": {
+    "twilio": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@anthropics/mcp-server-github"],
-      "description": "GitHub API access - repos, issues, PRs",
+      "args": [
+        "-y",
+        "@twilio-alpha/mcp",
+        "YOUR_ACCOUNT_SID:YOUR_AUTH_TOKEN",
+        "--services",
+        "twilio_api_v2010",
+        "twilio_messaging_v1"
+      ],
+      "description": "Twilio MCP - SMS, Voice, Messaging APIs",
       "enabled": false
     }
   }
